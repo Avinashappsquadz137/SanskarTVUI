@@ -5,9 +5,16 @@
 //  Created by Sanskar IOS Dev on 12/12/24.
 //
 
+import Foundation
+import Combine   // ✅ MUST
 import SwiftUI
 
+@MainActor
+final class AppUIState: ObservableObject {
+    @Published var isVideoFullscreen: Bool = false
+}
 struct MAinTabbarVC: View {
+    @EnvironmentObject var uiState: AppUIState
     @State var presentSideMenu = false
     @State private var selectedView = 0
 
@@ -15,16 +22,20 @@ struct MAinTabbarVC: View {
         ZStack(){
             
             VStack(){
-                NavBar(
-                    presentSideMenu: $presentSideMenu,
-                    notificationCount: 5
-                )
+                if !uiState.isVideoFullscreen {
+                    NavBar(
+                        presentSideMenu: $presentSideMenu,
+                        notificationCount: 5
+                    )
+                }
                 Spacer()
                 TabView(selection: $selectedView) {
                     
                     NavigationView {
                         HomeScreenView()
+                            .toolbar(uiState.isVideoFullscreen ? .hidden : .visible, for: .tabBar)
                     }
+                    .navigationViewStyle(StackNavigationViewStyle())
                     .tabItem {
                         Image(systemName: "house.fill")
                         Text("HOME")
@@ -32,7 +43,9 @@ struct MAinTabbarVC: View {
                     
                     NavigationView {
                         BhajanScreenView()
+                            .toolbar(uiState.isVideoFullscreen ? .hidden : .visible, for: .tabBar)
                     }
+                    .navigationViewStyle(StackNavigationViewStyle())
                     .tabItem {
                         Image(systemName: "music.note")
                         Text("BHAJAN")
@@ -40,8 +53,10 @@ struct MAinTabbarVC: View {
                     
                     NavigationView {
                         PremiumVideoScreen()
+                            .toolbar(uiState.isVideoFullscreen ? .hidden : .visible, for: .tabBar)
                            
                     }
+                    .navigationViewStyle(StackNavigationViewStyle())
                     .tabItem {
                         Image(systemName: "crown.fill")
                         Text("PREMIUM")
@@ -49,15 +64,19 @@ struct MAinTabbarVC: View {
                     
                     NavigationView {
                         VideoScreen()
+                            .toolbar(uiState.isVideoFullscreen ? .hidden : .visible, for: .tabBar)
                     }
+                    .navigationViewStyle(StackNavigationViewStyle())
                     .tabItem {
                         Image(systemName: "play.circle.fill")
                         Text("VIDEO")
                     }.tag(3)
                     NavigationView {
                         ShortsScreen()
+                            .toolbar(uiState.isVideoFullscreen ? .hidden : .visible, for: .tabBar)
                            
                     }
+                    .navigationViewStyle(StackNavigationViewStyle())
                     .tabItem {
                         Image(systemName: "infinity.circle.fill")
                         Text("SHORTS")

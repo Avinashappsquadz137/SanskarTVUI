@@ -130,7 +130,11 @@ struct List : Codable {
     let third_party_channel_status : String?
     let position : String?
     let is_likes : String?
-
+    let thumbnail_url : String?
+    let vertical_banner : String?
+    let thumbnail : String?
+    let newly_released : String?
+    
     enum CodingKeys: String, CodingKey {
 
         case id = "id"
@@ -154,6 +158,10 @@ struct List : Codable {
         case third_party_channel_status = "third_party_channel_status"
         case position = "position"
         case is_likes = "is_likes"
+        case thumbnail_url = "thumbnail_url"
+        case vertical_banner = "vertical_banner"
+        case thumbnail = "thumbnail"
+        case newly_released = "newly_released"
     }
 
     init(from decoder: Decoder) throws {
@@ -179,6 +187,10 @@ struct List : Codable {
         third_party_channel_status = try values.decodeIfPresent(String.self, forKey: .third_party_channel_status)
         position = try values.decodeIfPresent(String.self, forKey: .position)
         is_likes = try values.decodeIfPresent(String.self, forKey: .is_likes)
+        thumbnail_url = try values.decodeIfPresent(String.self, forKey: .thumbnail_url)
+        vertical_banner = try values.decodeIfPresent(String.self, forKey: .vertical_banner)
+        thumbnail = try values.decodeIfPresent(String.self, forKey: .thumbnail)
+        newly_released = try values.decodeIfPresent(String.self, forKey: .newly_released)
     }
 
 }

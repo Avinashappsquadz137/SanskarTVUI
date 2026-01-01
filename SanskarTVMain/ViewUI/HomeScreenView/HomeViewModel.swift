@@ -29,7 +29,7 @@ final class HomeViewModel: ObservableObject {
                 endpoint: Constant.getlogin,
                 method: .post,
                 parameters: [
-                    "user_id": "458500",
+                    "user_id": "645485",
                     "device_type": "1",
                     "current_version": "44"
                 ],

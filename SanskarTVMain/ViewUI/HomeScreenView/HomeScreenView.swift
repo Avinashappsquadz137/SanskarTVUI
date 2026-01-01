@@ -10,36 +10,55 @@ import SwiftUI
 struct HomeScreenView: View {
 
     @StateObject private var viewModel = HomeViewModel()
-
+    @EnvironmentObject var uiState: AppUIState
+    @State private var selectedVideoURL: URL?
+    @State private var selectedChannelId: String?
+    
+    private var screenSize: CGRect {
+        UIScreen.main.bounds
+    }
+    
+    private var videoHeight: CGFloat {
+        screenSize.width * 9 / 16
+    }
     var body: some View {
         VStack(spacing: 0) {
+            
+            if let url = selectedVideoURL {
+                VideoPlayerManager(
+                    url: url,   // ✅ direct pass
+                    size: UIScreen.main.bounds.size,
+                    safeArea: EdgeInsets(),
+                    isRotated: $viewModel.isRotated
+                )
+                .id(url) 
+                .frame(
+                    width: screenSize.width,
+                    height: viewModel.isRotated
+                        ? screenSize.height
+                        : videoHeight
+                )
+                .onChange(of: viewModel.isRotated) { isFull in
+                    uiState.isVideoFullscreen = isFull
+                }
+            }
 
-            // ✅ VIDEO (fixed height)
-            VideoPlayerManager(
-                url: URL(string: "https://d26idhjf0y1p2g.cloudfront.net/out/v1/cd66dd25b9774cb29943bab54bbf3e2f/index.m3u8")!,
-                size: UIScreen.main.bounds.size,
-                safeArea: EdgeInsets(),
-                isRotated: $viewModel.isRotated
-            )
-            .frame(height: viewModel.isRotated ? UIScreen.main.bounds.height : 250)
-          
-
-            // ✅ CONTENT (scrollable)
             if !viewModel.isRotated {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    LazyVStack(spacing: 24) {
                         if let menus = viewModel.menuResponse?.data {
                             ForEach(menus, id: \.id) { menu in
-                                Text(menu.menu_title ?? "")
-                                    .font(.headline)
+                                HomeSectionView(
+                                    onItemTap: playVideo, menu: menu,selectedChannelId: selectedChannelId   
+                                )
                             }
                         } else if viewModel.isLoading {
                             ProgressView()
+                                .padding(.top, 40)
                         }
                     }
-                    .padding()
+                    .padding(.vertical)
                 }
-                .zIndex(0)
             }
         }
         .ignoresSafeArea(.all, edges: viewModel.isRotated ? .all : [])
@@ -47,4 +66,15 @@ struct HomeScreenView: View {
             await viewModel.getMenuMaster()
         }
     }
+    func playVideo(_ item: List) {
+
+        guard let urlString =
+                item.channel_url,
+              let url = URL(string: urlString)
+        else { return }
+
+        selectedVideoURL = url
+        selectedChannelId = item.id      // 🔥 MARK AS LIVE
+    }
+
 }

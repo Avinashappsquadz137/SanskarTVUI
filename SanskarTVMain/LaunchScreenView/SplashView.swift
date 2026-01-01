@@ -13,7 +13,7 @@ struct SplashView: View {
     @State private var navigate = false
 
     let isLoggedIn = false // UserDefaultsManager.isLoggedIn()
-
+    @StateObject private var uiState = AppUIState()
     var body: some View {
         NavigationStack {
             ZStack {
@@ -39,9 +39,10 @@ struct SplashView: View {
     private var destinationView: some View {
         if isLoggedIn {
             MAinTabbarVC()
-                
+                .environmentObject(uiState)
         } else {
             MAinTabbarVC()
+                .environmentObject(uiState)
         }
     }
 

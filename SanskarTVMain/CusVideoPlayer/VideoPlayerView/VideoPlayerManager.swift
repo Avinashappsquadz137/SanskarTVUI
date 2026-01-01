@@ -15,15 +15,15 @@ struct VideoPlayerManager: View {
     var size : CGSize
     var safeArea: EdgeInsets
     
-    init(url: URL, size: CGSize, safeArea: EdgeInsets, isRotated: Binding<Bool>) {
-          self.url = url
-          self.size = size
-          self.safeArea = safeArea
-          self._isRotated = isRotated
-          _player = State(initialValue: AVPlayer(url: url))
-      }
-    @State private var player: AVPlayer?
-    
+//    init(url: URL, size: CGSize, safeArea: EdgeInsets, isRotated: Binding<Bool>) {
+//        self.url = url
+//        self.size = size
+//        self.safeArea = safeArea
+//        self._isRotated = isRotated
+//    }
+
+    @State private var player: AVPlayer = AVPlayer()
+
     @State private var showPlayerControlls : Bool = false
     @State private var isPlaying : Bool = false
     @State private var timeoutTask : DispatchWorkItem?
@@ -74,7 +74,7 @@ struct VideoPlayerManager: View {
             : .init(width: size.width, height: size.height / 3.5)
             
             ZStack {
-                if let player {
+               
                     CustomVideoPlayer(player: player)
                         .aspectRatio(16/9, contentMode: .fit)
                         .frame(
@@ -176,7 +176,7 @@ struct VideoPlayerManager: View {
                         }
                     }
                     .opacity(showPlayerControlls ? 1 : 0)
-                }
+                
                 if isBuffering {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -194,7 +194,7 @@ struct VideoPlayerManager: View {
                             applyQuality(quality)
                         },
                         applySpeed: { speed in
-                            player?.rate = Float(speed)
+                            player.rate = Float(speed)
                         }
                     )
                     .frame(maxWidth: 250)
@@ -209,7 +209,7 @@ struct VideoPlayerManager: View {
                 
             }
             .sheet(isPresented: $showShareSheet) {
-                if let url = player?.currentItem?.asset as? AVURLAsset {
+                if let url = player.currentItem?.asset as? AVURLAsset {
                     ActivityView(activityItems: [url.url])
                 }
             }
@@ -248,82 +248,86 @@ struct VideoPlayerManager: View {
         }
      
         .onAppear {
-            setupPlayerObservers()
-            
+            setupPlayer(with: url)
+
             fetchHLSVariants(from: url) { variants in
                 DispatchQueue.main.async {
                     hlsVariants = variants
-                    print("✅ Loaded HLS variants: \(variants)")
                 }
-                
             }
         }
-        .onAppear {
-            if player == nil {
-                let avPlayer = AVPlayer(url: url)
-                avPlayer.automaticallyWaitsToMinimizeStalling = false
-                avPlayer.currentItem?.preferredForwardBufferDuration = 1
-                player = avPlayer
-                player?.play()
-            }
+        .onChange(of: url) { newURL in
+            setupPlayer(with: newURL)
         }
+//        .onAppear {
+//            if player == nil {
+//                let avPlayer = AVPlayer(url: url)
+//                avPlayer.automaticallyWaitsToMinimizeStalling = false
+//                avPlayer.currentItem?.preferredForwardBufferDuration = 1
+//                player = avPlayer
+//                player?.play()
+//            }
+//        }
         .onDisappear {
+            player.pause()
+            player.replaceCurrentItem(with: nil)
             cancellables.removeAll()
             timeoutTask?.cancel()
         }
-        
+
     }
     
+    private func setupPlayer(with url: URL) {
+
+        // 1️⃣ Stop old
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+
+        // 2️⃣ New item
+        let item = AVPlayerItem(url: url)
+        item.preferredForwardBufferDuration = 1
+
+        // 3️⃣ Replace item (SAME PLAYER)
+        player.replaceCurrentItem(with: item)
+
+        // 4️⃣ Play
+        isPlaying = true
+        isBuffering = true
+        setupPlayerObservers()
+        player.play()
+    }
+
     
     private func setupPlayerObservers() {
         guard !isObserverAdded else { return }
-        
-        // Track player progress
-        player?.addPeriodicTimeObserver(forInterval: .init(seconds: 1, preferredTimescale: 1), queue: .main) { _ in
-            guard let currentItem = player?.currentItem else { return }
-            
-            if currentItem.duration.isIndefinite {
+        isObserverAdded = true
+
+        player.addPeriodicTimeObserver(
+            forInterval: .init(seconds: 1, preferredTimescale: 600),
+            queue: .main
+        ) { _ in
+            guard let item = player.currentItem else { return }
+
+            if item.duration.isIndefinite {
                 progress = 0
             } else {
-                let currentTime = player?.currentTime().seconds ?? 0
-                let total = currentItem.duration.seconds
-                if !isSeeking { progress = currentTime / total }
-                if progress >= 1 {
-                    isFinishedPlaying = true
-                    isPlaying = false
-                }
+                let current = player.currentTime().seconds
+                let total = item.duration.seconds
+                if !isSeeking { progress = current / total }
             }
         }
-        
-        // Observe buffering start/stop
-        player?.currentItem?.publisher(for: \.isPlaybackBufferEmpty)
+
+        player.currentItem?.publisher(for: \.isPlaybackBufferEmpty)
             .receive(on: RunLoop.main)
             .sink { empty in
                 isBuffering = empty
-                if empty { player?.pause() }
             }
             .store(in: &cancellables)
-        
-        player?.currentItem?.publisher(for: \.isPlaybackLikelyToKeepUp)
-            .receive(on: RunLoop.main)
-            .sink { keepUp in
-                isBuffering = !keepUp
-                if keepUp && !isFinishedPlaying {
-                    player?.play()   // auto resume
-                    isPlaying = true
-                }
-            }
-            .store(in: &cancellables)
-        NotificationCenter.default.addObserver(forName: .AVPlayerItemPlaybackStalled,
-                                               object: player?.currentItem,
-                                               queue: .main) { _ in
-            isBuffering = true
-        }
-        isObserverAdded = true
     }
+
     
     @ViewBuilder func videoSeekerView(_ videoSize: CGSize) -> some View {
-        if let item = player?.currentItem, item.duration.isIndefinite {
+        if let item = player.currentItem, item.duration.isIndefinite {
             VStack(alignment: .leading, spacing: 5) {
                 // LIVE label
                 HStack {
@@ -352,7 +356,7 @@ struct VideoPlayerManager: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .topLeading)
-        } else if let currentItem = player?.currentItem{
+        } else if let currentItem = player.currentItem{
             let totalDuration = currentItem.duration.seconds
             let playedDuration = totalDuration * progress
             let videoPlaySize = videoSize.width - 150
@@ -389,11 +393,11 @@ struct VideoPlayerManager: View {
                                     isSeeking = true
                                 }
                                 .onEnded { _ in
-                                    if let currentPlayerItem = player?.currentItem {
+                                    if let currentPlayerItem = player.currentItem {
                                         let totalDuration = currentPlayerItem.duration.seconds
                                         
                                         let seekTime = totalDuration * progress
-                                        player?.seek(to: .init(seconds: seekTime, preferredTimescale: 600))
+                                        player.seek(to: .init(seconds: seekTime, preferredTimescale: 600))
                                         
                                         if isPlaying {
                                             timeOutControls()
@@ -438,17 +442,17 @@ struct VideoPlayerManager: View {
             Button {
                 if isFinishedPlaying {
                     isFinishedPlaying = false
-                    player?.seek(to: .zero)
+                    player.seek(to: .zero)
                     progress = .zero
                 }
                 
                 if isPlaying {
-                    player?.pause()
+                    player.pause()
                     if let timeoutTask {
                         timeoutTask.cancel()
                     }
                 }else {
-                    player?.play()
+                    player.play()
                     timeOutControls()
                 }
                 
@@ -499,7 +503,7 @@ struct VideoPlayerManager: View {
     }
     private func applyQuality(_ quality: String) {
         selectedQuality = quality
-        guard let player = player else { return }
+        let player = self.player
         
         if quality == "Auto" {
             player.currentItem?.preferredPeakBitRate = 0
