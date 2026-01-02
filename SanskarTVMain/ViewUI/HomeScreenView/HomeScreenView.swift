@@ -26,12 +26,13 @@ struct HomeScreenView: View {
             
             if let url = selectedVideoURL {
                 VideoPlayerManager(
-                    url: url,   // ✅ direct pass
+                    url: url,  
                     size: UIScreen.main.bounds.size,
                     safeArea: EdgeInsets(),
+                    resumeTime: viewModel.resumeTime,
                     isRotated: $viewModel.isRotated
                 )
-                .id(url) 
+                .id(url)
                 .frame(
                     width: screenSize.width,
                     height: viewModel.isRotated
@@ -50,7 +51,7 @@ struct HomeScreenView: View {
                             ForEach(menus, id: \.id) { menu in
                                 HomeSectionView(
                                     onItemTap: playVideo, menu: menu,selectedChannelId: selectedChannelId   
-                                )
+                                ).environmentObject(viewModel)
                             }
                         } else if viewModel.isLoading {
                             ProgressView()
@@ -68,13 +69,25 @@ struct HomeScreenView: View {
     }
     func playVideo(_ item: List) {
 
-        guard let urlString =
-                item.channel_url,
-              let url = URL(string: urlString)
-        else { return }
+        let urlString =
+            item.channel_url ??
+            item.custom_episode_url
 
+        guard let finalURL = urlString,
+              let url = URL(string: finalURL) else {
+            return
+        }
+        viewModel.isVideoPlaying = false
+        viewModel.currentlyPlayingEpisodeId = nil
+        viewModel.currentlyPlayingId = nil
+
+        // 🔥 SET NEW
         selectedVideoURL = url
-        selectedChannelId = item.id      // 🔥 MARK AS LIVE
+        selectedChannelId = item.id
+        viewModel.resumeTime = Double(item.pause_at ?? "0") ?? 0
+        viewModel.currentlyPlayingId = item.id
+        viewModel.currentlyPlayingEpisodeId = item.episode_id
+        viewModel.isVideoPlaying = true
     }
 
 }

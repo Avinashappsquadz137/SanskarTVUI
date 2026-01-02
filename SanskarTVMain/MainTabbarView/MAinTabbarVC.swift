@@ -15,6 +15,7 @@ final class AppUIState: ObservableObject {
 }
 struct MAinTabbarVC: View {
     @EnvironmentObject var uiState: AppUIState
+    @StateObject private var homeViewModel = HomeViewModel() 
     @State var presentSideMenu = false
     @State private var selectedView = 0
 
@@ -33,6 +34,7 @@ struct MAinTabbarVC: View {
                     
                     NavigationView {
                         HomeScreenView()
+                            .environmentObject(homeViewModel)
                             .toolbar(uiState.isVideoFullscreen ? .hidden : .visible, for: .tabBar)
                     }
                     .navigationViewStyle(StackNavigationViewStyle())

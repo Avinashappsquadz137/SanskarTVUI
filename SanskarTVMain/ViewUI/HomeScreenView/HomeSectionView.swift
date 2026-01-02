@@ -10,6 +10,8 @@ struct HomeSectionView: View {
     let onItemTap: (List) -> Void
     let menu: GetMenu
     let selectedChannelId: String?
+    @EnvironmentObject var viewModel: HomeViewModel
+    
     private let videoTypeIds: Set<String> = [
         "3",   // TYPE_VIDEO
         "5",
@@ -25,7 +27,7 @@ struct HomeSectionView: View {
         
         switch menu.menu_type_id {
         case "6": // season
-            return 2.0 / 3.0      // vertical
+            return 2.0 / 3.0
         default:  // channel
             return 3.0 / 2.0
         }
@@ -73,30 +75,22 @@ struct HomeSectionView: View {
                 Spacer()
                 
                 Button(action: {
-                    // Show more action
+                  
                 }) {
                     HStack(spacing: 4) {
                         Text("Show More")
-                            .font(.system(size: 11, weight: .semibold))
-
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.black)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.orange)
+                            
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(
-                        LinearGradient(
-                            colors: [.orange, .red],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(14)
                 }
             }
-            
-
             
             if let list = menu.list {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -112,10 +106,16 @@ struct HomeSectionView: View {
                                 isLive: selectedChannelId == item.id && menu.menu_type_id == "1",
                                 showChannelBorder: menu.menu_type_id == "1",
                                 showCrown: menu.menu_type_id == "6",
-                                newlyReleased: item.newly_released == "1"
+                                newlyReleased: item.newly_released == "1",
+                                showPlayIcon: menu.menu_type_id == "19",
+                                isCurrentlyPlaying: viewModel.currentlyPlayingId == item.id,
+                                isPlaying:
+                                        menu.menu_type_id == "19" &&
+                                        viewModel.isVideoPlaying &&
+                                        viewModel.currentlyPlayingEpisodeId == item.episode_id
                             )
                             .onTapGesture {
-                                if menu.menu_type_id == "1" {
+                                if menu.menu_type_id == "1" || menu.menu_type_id == "19" {
                                     onItemTap(item)
                                 }
                             }
@@ -138,6 +138,9 @@ struct HomeCardView: View {
     let showChannelBorder: Bool
     let showCrown: Bool
     let newlyReleased: Bool
+    let showPlayIcon: Bool
+    let isCurrentlyPlaying: Bool
+    let isPlaying: Bool
     
     private var imageURL: URL? {
         let urlString: String
@@ -170,6 +173,40 @@ struct HomeCardView: View {
                     EmptyView()
                 }
             }
+            if menuTypeId == "19", isPlaying {
+
+                ZStack {
+                    Color.black.opacity(0.25)
+
+                    Image(systemName: "pause.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(.white)
+                        .shadow(radius: 6)
+                }
+            }
+
+            if menuTypeId == "19", let progress = item.progress, progress > 0 {
+                VStack {
+                    Spacer()
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.3))
+                                .frame(height: 4)
+                            Rectangle()
+                                .fill(Color.red)
+                                .frame(
+                                    width: geo.size.width * CGFloat(progress) / 100,
+                                    height: 4
+                                )
+                        }
+                    }
+                    .frame(height: 4)
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, 6)
+                }
+            }
+            
             HStack (spacing :5){
                 if showCrown {
                     Image(systemName: "crown.fill")
@@ -178,7 +215,6 @@ struct HomeCardView: View {
                         .padding(8)
                         .background(Color.black.opacity(0.6))
                         .clipShape(Circle())
-                        
                 }
                 if newlyReleased {
                     Text("NEW RELEASED")

@@ -17,6 +17,10 @@ final class HomeViewModel: ObservableObject {
     @Published var menuResponse: GetMenuMasterModels?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var resumeTime: Double = 0
+    @Published var isVideoPlaying: Bool = false
+    @Published var currentlyPlayingId: String? = nil
+    @Published var currentlyPlayingEpisodeId: String? = nil
 
     // MARK: - API Call
     func getMenuMaster() async {

@@ -14,13 +14,14 @@ struct VideoPlayerManager: View {
     let url: URL
     var size : CGSize
     var safeArea: EdgeInsets
-    
+    let resumeTime: Double 
 //    init(url: URL, size: CGSize, safeArea: EdgeInsets, isRotated: Binding<Bool>) {
 //        self.url = url
 //        self.size = size
 //        self.safeArea = safeArea
 //        self._isRotated = isRotated
 //    }
+    @EnvironmentObject var viewModel: HomeViewModel
 
     @State private var player: AVPlayer = AVPlayer()
 
@@ -248,6 +249,8 @@ struct VideoPlayerManager: View {
         }
      
         .onAppear {
+            isPlaying = true
+               viewModel.isVideoPlaying = true
             setupPlayer(with: url)
 
             fetchHLSVariants(from: url) { variants in
@@ -259,16 +262,16 @@ struct VideoPlayerManager: View {
         .onChange(of: url) { newURL in
             setupPlayer(with: newURL)
         }
-//        .onAppear {
-//            if player == nil {
-//                let avPlayer = AVPlayer(url: url)
-//                avPlayer.automaticallyWaitsToMinimizeStalling = false
-//                avPlayer.currentItem?.preferredForwardBufferDuration = 1
-//                player = avPlayer
-//                player?.play()
-//            }
-//        }
+        .onAppear {
+            if resumeTime > 0 {
+                let seconds = resumeTime / 1000   // ms → sec
+                let time = CMTime(seconds: seconds, preferredTimescale: 1)
+                player.seek(to: time)
+            }
+        }
+
         .onDisappear {
+            viewModel.isVideoPlaying = false
             player.pause()
             player.replaceCurrentItem(with: nil)
             cancellables.removeAll()
@@ -279,22 +282,32 @@ struct VideoPlayerManager: View {
     
     private func setupPlayer(with url: URL) {
 
-        // 1️⃣ Stop old
+        // Stop old
         player.pause()
         player.replaceCurrentItem(with: nil)
-
-        // 2️⃣ New item
         let item = AVPlayerItem(url: url)
         item.preferredForwardBufferDuration = 1
-
-        // 3️⃣ Replace item (SAME PLAYER)
         player.replaceCurrentItem(with: item)
-
-        // 4️⃣ Play
-        isPlaying = true
         isBuffering = true
+        isPlaying = true
         setupPlayerObservers()
-        player.play()
+        item.publisher(for: \.status)
+            .filter { $0 == .readyToPlay }
+            .first()
+            .sink { _ in
+                if resumeTime > 0 {
+                    let seconds = resumeTime / 1000
+                    let time = CMTime(seconds: seconds, preferredTimescale: 600)
+
+                    self.player.seek(
+                        to: time,
+                        toleranceBefore: .zero,
+                        toleranceAfter: .zero
+                    )
+                }
+                self.player.play()
+            }
+            .store(in: &cancellables)
     }
 
     
