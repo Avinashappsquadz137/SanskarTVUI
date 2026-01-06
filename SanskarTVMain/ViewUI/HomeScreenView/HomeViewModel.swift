@@ -16,16 +16,29 @@ final class HomeViewModel: ObservableObject {
     @Published var isRotated: Bool = false
     @Published var menuResponse: GetMenuMasterModels?
     @Published var isLoading: Bool = false
+    @Published var isLoadingMore: Bool = false
     @Published var errorMessage: String?
     @Published var resumeTime: Double = 0
     @Published var isVideoPlaying: Bool = false
-    @Published var currentlyPlayingId: String? = nil
+    //@Published var currentlyPlayingId: String? = nil
     @Published var currentlyPlayingEpisodeId: String? = nil
-
+    
+    // MARK: - Pagination
+    private var currentPage: Int = 1
+    private var canLoadMore: Bool = true
+    
     // MARK: - API Call
-    func getMenuMaster() async {
-        isLoading = true
-        errorMessage = nil
+    func getMenuMaster(loadMore: Bool = false) async {
+
+        if loadMore {
+            guard canLoadMore, !isLoadingMore else { return }
+            isLoadingMore = true
+            currentPage += 1
+        } else {
+            isLoading = true
+            currentPage = 1
+            canLoadMore = true
+        }
 
         do {
             let response: GetMenuMasterModels =
@@ -35,28 +48,29 @@ final class HomeViewModel: ObservableObject {
                 parameters: [
                     "user_id": "645485",
                     "device_type": "1",
-                    "current_version": "44"
+                    "current_version": "44",
+                    "page": "\(currentPage)"
                 ],
                 isMultipart: true
             )
-
-            menuResponse = response
-            isLoading = false
-
+            if loadMore {
+                if let newMenus = response.data,
+                   let existing = menuResponse?.data {
+                    menuResponse?.data = existing + newMenus
+                } else {
+                    menuResponse = response
+                }
+            } else {
+                menuResponse = response
+            }
+            if response.data?.isEmpty == true {
+                canLoadMore = false
+            }
         } catch {
-            isLoading = false
             errorMessage = error.localizedDescription
-            print("API Error:", error.localizedDescription)
+            print("Pagination Error:", error.localizedDescription)
         }
-    }
-
-    // MARK: - Orientation Handling
-    func updateOrientation() {
-        let orientation = UIDevice.current.orientation
-        if orientation.isLandscape {
-            isRotated = true
-        } else if orientation.isPortrait {
-            isRotated = false
-        }
+        isLoading = false
+        isLoadingMore = false
     }
 }

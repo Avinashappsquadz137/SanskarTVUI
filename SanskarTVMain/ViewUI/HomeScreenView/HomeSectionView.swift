@@ -37,7 +37,6 @@ struct HomeSectionView: View {
         if videoTypeIds.contains(menu.menu_type_id ?? "") {
             return 250            // 🔥 video big
         }
-        
         switch menu.menu_type_id {
         case "6": // season
             return 150
@@ -107,8 +106,6 @@ struct HomeSectionView: View {
                                 showChannelBorder: menu.menu_type_id == "1",
                                 showCrown: menu.menu_type_id == "6",
                                 newlyReleased: item.newly_released == "1",
-                                showPlayIcon: menu.menu_type_id == "19",
-                                isCurrentlyPlaying: viewModel.currentlyPlayingId == item.id,
                                 isPlaying:
                                         menu.menu_type_id == "19" &&
                                         viewModel.isVideoPlaying &&
@@ -138,8 +135,6 @@ struct HomeCardView: View {
     let showChannelBorder: Bool
     let showCrown: Bool
     let newlyReleased: Bool
-    let showPlayIcon: Bool
-    let isCurrentlyPlaying: Bool
     let isPlaying: Bool
     
     private var imageURL: URL? {

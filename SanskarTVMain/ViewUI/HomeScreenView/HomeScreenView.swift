@@ -48,44 +48,60 @@ struct HomeScreenView: View {
                 ScrollView {
                     LazyVStack(spacing: 24) {
                         if let menus = viewModel.menuResponse?.data {
-                            ForEach(menus, id: \.id) { menu in
+                            ForEach(menus.indices, id: \.self) { index in
+                                let menu = menus[index]
+
                                 HomeSectionView(
-                                    onItemTap: playVideo, menu: menu,selectedChannelId: selectedChannelId   
-                                ).environmentObject(viewModel)
+                                    onItemTap: playVideo,
+                                    menu: menu,
+                                    selectedChannelId: selectedChannelId
+                                )
+                                .environmentObject(viewModel)
+                                .onAppear {
+                                    if index == menus.count - 1 {
+                                        Task {
+                                            await viewModel.getMenuMaster(loadMore: true)
+                                        }
+                                    }
+                                }
                             }
-                        } else if viewModel.isLoading {
-                            ProgressView()
-                                .padding(.top, 40)
+
+                            if viewModel.isLoadingMore {
+                                ProgressView()
+                                    .padding(.vertical, 16)
+                            }
                         }
                     }
                     .padding(.vertical)
                 }
+                .refreshable {
+                    await viewModel.getMenuMaster()
+                }
             }
+
         }
         .ignoresSafeArea(.all, edges: viewModel.isRotated ? .all : [])
         .task {
             await viewModel.getMenuMaster()
         }
+        
     }
     func playVideo(_ item: List) {
 
-        let urlString =
-            item.channel_url ??
-            item.custom_episode_url
-
+        let urlString = item.channel_url ?? item.custom_episode_url
         guard let finalURL = urlString,
-              let url = URL(string: finalURL) else {
-            return
-        }
+              let url = URL(string: finalURL) else { return }
+
+        // RESET
         viewModel.isVideoPlaying = false
         viewModel.currentlyPlayingEpisodeId = nil
-        viewModel.currentlyPlayingId = nil
+        //viewModel.currentlyPlayingId = nil
 
-        // 🔥 SET NEW
+        // SET
         selectedVideoURL = url
         selectedChannelId = item.id
         viewModel.resumeTime = Double(item.pause_at ?? "0") ?? 0
-        viewModel.currentlyPlayingId = item.id
+        //viewModel.currentlyPlayingId = item.id
         viewModel.currentlyPlayingEpisodeId = item.episode_id
         viewModel.isVideoPlaying = true
     }

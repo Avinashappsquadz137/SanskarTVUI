@@ -11,7 +11,7 @@ struct GetMenuMasterModels : Codable {
     let message : String?
     let notification_count : Int?
     let invitation_event : Int?
-    let data : [GetMenu]?
+    var data : [GetMenu]?
     let season_data : [String]?
     let web_view_bhajan : String?
     let web_view_news : String?

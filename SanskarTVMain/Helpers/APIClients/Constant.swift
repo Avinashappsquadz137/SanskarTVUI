@@ -31,7 +31,8 @@ class ApiRequest {
 
 struct Constant {
 
-    static let getlogin                    = "data_model_v1/menu_master/get_menu_master"
+    static let getlogin                         = "data_model_v1/menu_master/get_menu_master"
+    static let getShortsVideo                   = "data_model/Shorts_video/get_shorts_video"
     
 }
 
