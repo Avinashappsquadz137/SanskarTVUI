@@ -11,8 +11,7 @@ import SwiftUI
 
 @MainActor
 final class AppUIState: ObservableObject {
-    @Published var isVideoFullscreen: Bool = false   // rotation / player fullscreen
-    @Published var isHideNavbar: Bool = false        // shorts only
+    @Published var isVideoFullscreen: Bool = false   
 }
 
 struct MAinTabbarVC: View {
@@ -25,12 +24,12 @@ struct MAinTabbarVC: View {
         ZStack(){
             
             VStack(){
-                if !uiState.isHideNavbar && !uiState.isVideoFullscreen {
-                                  NavBar(
-                                      presentSideMenu: $presentSideMenu,
-                                      notificationCount: 5
-                                  )
-                              }
+                if !uiState.isVideoFullscreen {
+                    NavBar(
+                        presentSideMenu: $presentSideMenu,
+                        notificationCount: 5
+                    )
+                }
                 Spacer()
                 TabView(selection: $selectedView) {
                     
@@ -78,7 +77,6 @@ struct MAinTabbarVC: View {
                     }.tag(3)
                     NavigationView {
                         ShortsViewScreen()
-                            .environmentObject(uiState)
                            
                     }
                     .navigationViewStyle(StackNavigationViewStyle())
@@ -89,11 +87,6 @@ struct MAinTabbarVC: View {
                     
                 }
                 .toolbar(uiState.isVideoFullscreen ? .hidden : .visible, for: .tabBar)
-                .onChange(of: selectedView) { value in
-                    withAnimation {
-                        uiState.isHideNavbar = (value == 5) 
-                    }
-                }
                 
                 .onAppear(){
                     UITabBar.appearance().backgroundColor = UIColor(.brightOrange)

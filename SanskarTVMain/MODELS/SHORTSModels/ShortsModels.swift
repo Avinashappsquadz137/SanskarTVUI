@@ -6,6 +6,32 @@
 //
 
 import Foundation
+
+struct Reel: Identifiable {
+    let id: String
+    let title: String?
+    let description: String?
+    let thumbnail: String?
+    let videoURL: String
+    let isLiked : String
+    let totalLike: String
+    let totalComment: String
+    let totalShare: String
+    
+    init(short: Shorts) {
+        self.id = short.id ?? UUID().uuidString
+        self.title = short.title
+        self.description = short.description
+        self.thumbnail = short.thumbnail
+        self.videoURL = short.video_url ?? ""
+        self.isLiked = short.is_liked ?? ""
+        
+        self.totalLike = short.total_like ?? "0"
+        self.totalComment = short.total_comments ?? "0"
+        self.totalShare = short.total_share ?? "0"
+    }
+}
+
 struct ShortsModels : Codable {
     let status : Bool?
     let message : String?
