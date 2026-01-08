@@ -8,10 +8,11 @@
 import SwiftUI
 import AVKit
 import Combine
+import UIKit
+import AVFoundation
 
 struct ShortsViewScreen: View {
     @StateObject private var viewModel = ShortsViewModel()
-    @StateObject private var playback = ReelsPlaybackManager.shared
     @State private var visibleID: String?
     
     var body: some View {
@@ -27,27 +28,14 @@ struct ShortsViewScreen: View {
                                height: geo.size.height)
                         .id(reel.id)
                     }
+                    
                 }
             }
-            .scrollIndicators(.hidden)
             .scrollTargetLayout()
             .scrollTargetBehavior(.paging)
             .scrollPosition(id: $visibleID)
         }
         .ignoresSafeArea()
-        .onChange(of: visibleID) { id in
-            guard
-                let id,
-                let index = viewModel.reels.firstIndex(where: { $0.id == id })
-            else { return }
-            
-            let current = viewModel.reels[index]
-            let next = index + 1 < viewModel.reels.count
-            ? viewModel.reels[index + 1]
-            : nil
-            
-            playback.play(reel: current, nextReel: next)
-        }
         .task {
             await viewModel.fetchShorts()
             visibleID = viewModel.reels.first?.id
@@ -55,130 +43,227 @@ struct ShortsViewScreen: View {
     }
 }
 
-
 struct ReelPlayerView: View {
+
     let reel: Reel
     let isActive: Bool
-    @State private var isMuted = false
-    @State private var showVolumeIcon = false
-    
+
+    @State private var hideThumbnail = false
+    @State private var showPlayPauseIcon = false
+    @State private var isPaused = false
+
     var body: some View {
         ZStack {
-            if isActive {
-                CustomVideoPlayer(player: ReelsPlaybackManager.shared.player)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.bottom,60)
-                    .clipped()
-            }
-            VStack {
-                Spacer()
-                HStack {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(reel.title ?? "")
-                            .bold()
-                        Text(reel.description ?? "")
-                            .font(.caption)
-                            .lineLimit(3)
+            VStack{
+   
+                ShortsVideoView(
+                    videoURL: reel.videoURL,
+                    isActive: isActive, isPaused: isPaused,
+                    isReadyToPlay: $hideThumbnail
+                )
+                .offset(y: -30)
+                .background(
+                    AsyncImage(url: URL(string: reel.thumbnail ?? "")) { img in
+                        img
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        Color.black
                     }
-                    .foregroundColor(.white)
-                    
-                    Spacer()
-                    VStack(spacing: 20) {
-                        actionItem(
-                            icon: reel.isLiked == "1" ? "heart.fill" : "heart",
-                            count: reel.totalLike
-                        )
-                        actionItem(
-                            icon: "message.fill",
-                            count: reel.totalComment
-                        )
-                        actionItem(
-                            icon: "arrowshape.turn.up.right.fill",
-                            count: reel.totalShare
-                        )
-                    }
-                }
-                .padding()
-                .padding(.bottom, 90)
+                        .opacity(hideThumbnail ? 0 : 1)
+                )
+                .clipped()
+                
             }
-            
-            if showVolumeIcon {
-                Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                    .padding()
-                    .background(.black.opacity(0.6))
-                    .clipShape(Circle())
-                    .foregroundColor(.white)
+            overlayUI
+
+        }
+        .onTapGesture {
+            isPaused.toggle()
+            showPlayPauseIcon = true
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                showPlayPauseIcon = false
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            isMuted.toggle()
-            ReelsPlaybackManager.shared.player.isMuted = isMuted
-            
-            withAnimation { showVolumeIcon = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                withAnimation { showVolumeIcon = false }
+        .overlay {
+            if showPlayPauseIcon {
+                Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.white)
+                    .scaleEffect(1.1)
+                    .transition(.scale)
             }
+        }
+        .clipped()
+        .contentShape(Rectangle())
+    }
+
+    private var overlayUI: some View {
+        VStack {
+            Spacer()
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(reel.title ?? "")
+                        .font(.headline)
+                        .bold()
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+
+                    Text(reel.description ?? "")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.85))
+                        .lineLimit(2)
+                }
+
+                Spacer()
+                VStack(spacing: 22) {
+                    actionItem(icon: "heart.fill", count: reel.totalLike)
+                    actionItem(icon: "message.fill", count: reel.totalComment)
+                    actionItem(icon: "arrowshape.turn.up.right.fill", count: reel.totalShare)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 80)
         }
     }
-    
-    private func actionItem(icon: String, count: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(.white)
+//HapticManager.shared.impact(style: .medium)
+    private func actionItem(icon: String, count: String) -> some View
+    {
+        VStack
+        {
             
-            Text(count)
-                .font(.caption)
-                .foregroundColor(.white)
+            Image(systemName: icon)
+            Text(count).font(.caption)
+        } .foregroundColor(.white)
+    }
+}
+
+struct ShortsVideoView: UIViewRepresentable {
+
+    let videoURL: String
+    let isActive: Bool
+    let isPaused: Bool
+    @Binding var isReadyToPlay: Bool
+
+    func makeUIView(context: Context) -> ShortsVideoUIView {
+        let view = ShortsVideoUIView()
+        view.onReadyToPlay = {
+            DispatchQueue.main.async {
+                isReadyToPlay = true
+            }
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: ShortsVideoUIView, context: Context) {
+
+        if isActive {
+            uiView.playIfNeeded(url: videoURL)
+        } else {
+            uiView.stopAndReset()
+        }
+
+        if isPaused {
+            uiView.pause()
+        } else {
+            uiView.play()
         }
     }
 }
 
 
-final class ReelsPlaybackManager: ObservableObject {
-    static let shared = ReelsPlaybackManager()
-    let player = AVPlayer()
-    @Published var currentReelID: String?
-    private var preloadedItem: AVPlayerItem?
-    
-    private init() {
-        player.actionAtItemEnd = .none
+final class ShortsVideoUIView: UIView {
+
+    private let player = AVPlayer()
+    private let playerLayer = AVPlayerLayer()
+    private var currentURL: String?
+
+    var onReadyToPlay: (() -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    private func setup() {
+        playerLayer.player = player
+        playerLayer.videoGravity = .resizeAspect
+        layer.addSublayer(playerLayer)
+        player.addObserver(self, forKeyPath: "timeControlStatus", options: [.new], context: nil)
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(loopVideo),
+            selector: #selector(loop),
             name: .AVPlayerItemDidPlayToEndTime,
             object: nil
         )
     }
-    
-    func play(reel: Reel, nextReel: Reel?) {
-        guard currentReelID != reel.id else { return }
-        currentReelID = reel.id
-        player.pause()
-        let item = preloadedItem ?? makeItem(url: reel.videoURL)
-        preloadedItem = nil
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        playerLayer.frame = bounds
+        CATransaction.commit()
+    }
+
+
+    func playIfNeeded(url: String) {
+        if currentURL == url {
+            player.play()
+            return
+        }
+
+        currentURL = url
+        guard let videoURL = URL(string: url) else { return }
+
+        let item = AVPlayerItem(url: videoURL)
+        item.preferredForwardBufferDuration = 8
         player.replaceCurrentItem(with: item)
         player.play()
-        if let next = nextReel {
-            preloadedItem = makeItem(url: next.videoURL)
-        }
     }
-    
-    private func makeItem(url: String) -> AVPlayerItem {
-        let item = AVPlayerItem(url: URL(string: url)!)
-        item.preferredForwardBufferDuration = 5
-        return item
+
+    func pause() {
+        player.pause()
+        player.seek(to: .zero)
     }
-    
-    @objc private func loopVideo() {
+
+    func play() {
+        player.play()
+    }
+
+    @objc private func loop() {
         player.seek(to: .zero)
         player.play()
     }
-    
-    func pause() {
+    func stopAndReset() {
         player.pause()
+        player.seek(to: .zero)
+        player.replaceCurrentItem(with: nil)
+        currentURL = nil
+    }
+
+    override func observeValue(
+        forKeyPath keyPath: String?,
+        of object: Any?,
+        change: [NSKeyValueChangeKey : Any]?,
+        context: UnsafeMutableRawPointer?
+    ) {
+        if keyPath == "timeControlStatus",
+           player.timeControlStatus == .playing {
+            onReadyToPlay?()
+        }
+    }
+
+    deinit {
+        player.removeObserver(self, forKeyPath: "timeControlStatus")
+        NotificationCenter.default.removeObserver(self)
     }
 }
-
 
