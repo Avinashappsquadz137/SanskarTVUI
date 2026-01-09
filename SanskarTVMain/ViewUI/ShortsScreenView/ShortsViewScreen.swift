@@ -40,6 +40,10 @@ struct ShortsViewScreen: View {
             await viewModel.fetchShorts()
             visibleID = viewModel.reels.first?.id
         }
+        .onDisappear {
+            ShortsVideoUIView.stopAllPlayers()
+        }
+
     }
 }
 
@@ -51,7 +55,13 @@ struct ReelPlayerView: View {
     @State private var hideThumbnail = false
     @State private var showPlayPauseIcon = false
     @State private var isPaused = false
-
+    @State private var isLiked = false
+    @State private var likeCount = 0
+    init(reel: Reel, isActive: Bool) {
+           self.reel = reel
+           self.isActive = isActive
+           _likeCount = State(initialValue: Int(reel.totalLike) ?? 0)
+       }
     var body: some View {
         ZStack {
             VStack{
@@ -118,7 +128,11 @@ struct ReelPlayerView: View {
 
                 Spacer()
                 VStack(spacing: 22) {
-                    actionItem(icon: "heart.fill", count: reel.totalLike)
+                    actionItem(
+                        icon: "heart.fill",
+                        count: likeCount,
+                        isLike: true
+                    )
                     actionItem(icon: "message.fill", count: reel.totalComment)
                     actionItem(icon: "arrowshape.turn.up.right.fill", count: reel.totalShare)
                 }
@@ -127,7 +141,49 @@ struct ReelPlayerView: View {
             .padding(.bottom, 80)
         }
     }
-//HapticManager.shared.impact(style: .medium)
+
+    private func actionItem(
+        icon: String,
+        count: Int,
+        isLike: Bool = false
+    ) -> some View {
+
+        Button {
+            if isLike {
+                toggleLike()
+            }
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 28))
+                    .foregroundColor(
+                        isLike && isLiked ? .pink : .white
+                    )
+                    .scaleEffect(
+                        isLike && isLiked ? 1.25 : 1.0
+                    )
+                    .animation(
+                        .spring(response: 0.3, dampingFraction: 0.6),
+                        value: isLiked
+                    )
+
+                Text("\(count)")
+                    .font(.caption)
+                    .foregroundColor(.white)
+            }
+        }
+    }
+    private func toggleLike() {
+        isLiked.toggle()
+        if isLiked {
+            likeCount += 1
+            HapticManager.shared.impact(style: .medium)
+        } else {
+            likeCount -= 1
+            HapticManager.shared.impact(style: .light)
+        }
+    }
+
     private func actionItem(icon: String, count: String) -> some View
     {
         VStack
@@ -178,7 +234,7 @@ final class ShortsVideoUIView: UIView {
     private let player = AVPlayer()
     private let playerLayer = AVPlayerLayer()
     private var currentURL: String?
-
+    private static var activePlayers: [AVPlayer] = []
     var onReadyToPlay: (() -> Void)?
 
     override init(frame: CGRect) {
@@ -190,11 +246,19 @@ final class ShortsVideoUIView: UIView {
         super.init(coder: coder)
         setup()
     }
-
+    static func stopAllPlayers() {
+           activePlayers.forEach {
+               $0.pause()
+               $0.replaceCurrentItem(with: nil)
+           }
+           activePlayers.removeAll()
+       }
     private func setup() {
         playerLayer.player = player
         playerLayer.videoGravity = .resizeAspect
+        layer.backgroundColor = UIColor.black.cgColor
         layer.addSublayer(playerLayer)
+        ShortsVideoUIView.activePlayers.append(player)
         player.addObserver(self, forKeyPath: "timeControlStatus", options: [.new], context: nil)
         NotificationCenter.default.addObserver(
             self,
@@ -231,7 +295,7 @@ final class ShortsVideoUIView: UIView {
 
     func pause() {
         player.pause()
-        player.seek(to: .zero)
+      
     }
 
     func play() {
@@ -260,10 +324,12 @@ final class ShortsVideoUIView: UIView {
             onReadyToPlay?()
         }
     }
-
     deinit {
-        player.removeObserver(self, forKeyPath: "timeControlStatus")
-        NotificationCenter.default.removeObserver(self)
-    }
+            player.pause()
+            player.replaceCurrentItem(with: nil)
+            ShortsVideoUIView.activePlayers.removeAll { $0 === player }
+            player.removeObserver(self, forKeyPath: "timeControlStatus")
+            NotificationCenter.default.removeObserver(self)
+        }
 }
 

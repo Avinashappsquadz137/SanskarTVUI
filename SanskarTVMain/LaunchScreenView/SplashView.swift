@@ -7,23 +7,32 @@
 import SwiftUI
 import AVFoundation
 
+enum SplashRoute: Hashable {
+    case home
+}
+
+
 struct SplashView: View {
 
-    @State private var player: AVPlayer?
-    @State private var navigate = false
+    @State private var player: AVPlayer? = nil
+    @State private var path = NavigationPath()
 
-    let isLoggedIn = false // UserDefaultsManager.isLoggedIn()
+    let isLoggedIn = false
     @StateObject private var uiState = AppUIState()
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ZStack {
-                VideoPlayerContainer(player: $player)
-                    .ignoresSafeArea()
-                NavigationLink(
-                    destination: destinationView,
-                    isActive: $navigate
-                ) {
-                    EmptyView()
+                if let player {
+                    CustomVideoPlayer(player: player)
+                        .ignoresSafeArea()
+                }
+            }
+            .navigationDestination(for: SplashRoute.self) { route in
+                switch route {
+                case .home:
+                    MAinTabbarVC()
+                        .environmentObject(uiState)
                 }
             }
             .onAppear {
@@ -31,63 +40,41 @@ struct SplashView: View {
             }
             .onDisappear {
                 player?.pause()
+                removeObserver()
             }
-        }
-    }
-
-    @ViewBuilder
-    private var destinationView: some View {
-        if isLoggedIn {
-            MAinTabbarVC()
-                .environmentObject(uiState)
-        } else {
-            MAinTabbarVC()
-                .environmentObject(uiState)
         }
     }
 
     // ▶️ Play splash video
     private func playVideo() {
-        guard let path = Bundle.main.path(forResource: "sanskarlogo", ofType: "mp4") else {
-            print("Video not found")
+        guard let url = Bundle.main.url(
+            forResource: "sanskarlogo",
+            withExtension: "mp4"
+        ) else {
+            print("❌ Video not found")
             return
         }
 
-        let url = URL(fileURLWithPath: path)
-        let player = AVPlayer(url: url)
-        player.volume = 0
-        self.player = player
+        let avPlayer = AVPlayer(url: url)
+        avPlayer.volume = 0
+        self.player = avPlayer
 
         NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
-            object: player.currentItem,
+            object: avPlayer.currentItem,
             queue: .main
         ) { _ in
-            navigate = true
+            path.append(SplashRoute.home)   // ✅ PUSH
         }
 
-        player.play()
-    }
-}
-
-struct VideoPlayerContainer: UIViewRepresentable {
-
-    @Binding var player: AVPlayer?
-
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        view.backgroundColor = .black
-        return view
+        avPlayer.play()
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {
-        guard let player else { return }
-
-        let layer = AVPlayerLayer(player: player)
-        layer.frame = uiView.bounds
-        layer.videoGravity = .resizeAspectFill
-
-        uiView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
-        uiView.layer.addSublayer(layer)
+    private func removeObserver() {
+        NotificationCenter.default.removeObserver(
+            self,
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: nil
+        )
     }
 }
