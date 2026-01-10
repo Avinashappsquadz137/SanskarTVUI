@@ -64,30 +64,28 @@ struct ReelPlayerView: View {
        }
     var body: some View {
         ZStack {
-            VStack{
-   
-                ShortsVideoView(
-                    videoURL: reel.videoURL,
-                    isActive: isActive, isPaused: isPaused,
-                    isReadyToPlay: $hideThumbnail
-                )
-                .offset(y: -30)
-                .background(
-                    AsyncImage(url: URL(string: reel.thumbnail ?? "")) { img in
-                        img
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        Color.black
-                    }
-                        .opacity(hideThumbnail ? 0 : 1)
-                )
-                .clipped()
-                
+            // 🎥 Video
+            ShortsVideoView(
+                videoURL: reel.videoURL,
+                isActive: isActive,
+                isPaused: isPaused,
+                isReadyToPlay: $hideThumbnail
+            )
+            .offset(y: -30)
+
+            // 🖼 Thumbnail (UPAR rahega)
+            if !hideThumbnail {
+                AsyncImage(url: URL(string: reel.thumbnail ?? "")) { img in
+                    img
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    Color.black
+                }
+                .transition(.opacity)
             }
             overlayUI
-
-        }
+        }.clipped()
         .onTapGesture {
             isPaused.toggle()
             showPlayPauseIcon = true
@@ -133,7 +131,7 @@ struct ReelPlayerView: View {
                         count: likeCount,
                         isLike: true
                     )
-                    actionItem(icon: "message.fill", count: reel.totalComment)
+                    //actionItem(icon: "message.fill", count: reel.totalComment)
                     actionItem(icon: "arrowshape.turn.up.right.fill", count: reel.totalShare)
                 }
             }

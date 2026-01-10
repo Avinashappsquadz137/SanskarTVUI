@@ -16,10 +16,10 @@ enum ApiMethod: String {
 }
 
 final class ApiClient {
-
+    
     static let shared = ApiClient()
     private init() {}
-
+    
     func request<T: Decodable>(
         endpoint: String,
         method: ApiMethod,
@@ -27,12 +27,20 @@ final class ApiClient {
         isMultipart: Bool = false,
         images: [String: Data] = [:]
     ) async throws -> T {
-
+        
         let url = try buildURL(endpoint: endpoint, method: method, params: parameters)
+        print("""
+          🌍 API REQUEST
+          -------------------
+          🔗 URL: \(url.absoluteString)
+          📤 Method: \(method.rawValue)
+          📦 Params: \(parameters)
+          -------------------
+          """)
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.allHTTPHeaderFields = setHeader()
-
+        
         if isMultipart {
             let boundary = UUID().uuidString
             request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -45,37 +53,57 @@ final class ApiClient {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
         }
-
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response: response)
-
-        return try JSONDecoder().decode(T.self, from: data)
+        if let http = response as? HTTPURLResponse {
+            print("✅ Status Code:", http.statusCode)
+        }
+        
+        // ✅ Raw JSON
+        if let jsonObject = try? JSONSerialization.jsonObject(with: data),
+           let prettyData = try? JSONSerialization.data(
+            withJSONObject: jsonObject,
+            options: [.prettyPrinted]
+           ),
+           let prettyString = String(data: prettyData, encoding: .utf8) {
+            
+            print("""
+            📦 API RAW RESPONSE:
+            -------------------
+            \(prettyString)
+            -------------------
+            """)
+        }
+        
+        let decoded = try JSONDecoder().decode(T.self, from: data)
+        
+        return decoded
     }
 }
 
 extension ApiClient {
-
+    
     private func buildURL(
         endpoint: String,
         method: ApiMethod,
         params: [String: Any]
     ) throws -> URL {
-
+        
         let baseURL = ApiRequest.Url.serverURL
         let fullUrl = endpoint.lowercased().hasPrefix("http")
-            ? endpoint
-            : baseURL + "/" + endpoint
-
+        ? endpoint
+        : baseURL + "/" + endpoint
+        
         guard var components = URLComponents(string: fullUrl) else {
             throw URLError(.badURL)
         }
-
+        
         if method == .get {
             components.queryItems = params.map {
                 URLQueryItem(name: $0.key, value: "\($0.value)")
             }
         }
-
+        
         guard let url = components.url else {
             throw URLError(.badURL)
         }
@@ -84,22 +112,22 @@ extension ApiClient {
 }
 
 extension ApiClient {
-
+    
     private func createMultipartBody(
         params: [String: Any],
         images: [String: Data],
         boundary: String
     ) -> Data {
-
+        
         var body = Data()
-
+        
         // Text parameters
         for (key, value) in params {
             body.append("--\(boundary)\r\n")
             body.append("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n")
             body.append("\(value)\r\n")
         }
-
+        
         // Images
         for (key, data) in images {
             body.append("--\(boundary)\r\n")
@@ -108,18 +136,18 @@ extension ApiClient {
             body.append(data)
             body.append("\r\n")
         }
-
+        
         body.append("--\(boundary)--\r\n")
         return body
     }
 }
 extension ApiClient {
-
+    
     private func validate(response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
         }
-
+        
         guard (200...299).contains(http.statusCode) else {
             throw NSError(
                 domain: "API Error",
@@ -128,11 +156,11 @@ extension ApiClient {
             )
         }
     }
-
+    
     private func setHeader() -> [String: String] {
         return [:
-            // "Authorization": "Bearer token"
-            // "device_type": "2"
+                    // "Authorization": "Bearer token"
+                // "device_type": "2"
         ]
     }
 }
@@ -144,34 +172,3 @@ extension Data {
     }
 }
 
-/*
- Task {
-     do {
-         let response: LoginResponse = try await ApiClient.shared.request(
-             endpoint: "/login",
-             method: .post,
-             parameters: ["email": "test@test.com", "password": "123456"]
-         )
-         print(response)
-     } catch {
-         print(error.localizedDescription)
-     }
- }
-
- */
-/*
- Task {
-     do {
-         let response: UploadResponse = try await ApiClient.shared.request(
-             endpoint: "/upload",
-             method: .post,
-             parameters: ["user_id": "12"],
-             isMultipart: true,
-             images: ["profile": imageData]
-         )
-         print(response)
-     } catch {
-         print(error)
-     }
- }
-*/

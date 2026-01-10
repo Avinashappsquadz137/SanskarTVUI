@@ -43,7 +43,7 @@ final class HomeViewModel: ObservableObject {
         do {
             let response: GetMenuMasterModels =
             try await ApiClient.shared.request(
-                endpoint: Constant.getlogin,
+                endpoint: Constant.getMenuMaster,
                 method: .post,
                 parameters: [
                     "user_id": "645485",
