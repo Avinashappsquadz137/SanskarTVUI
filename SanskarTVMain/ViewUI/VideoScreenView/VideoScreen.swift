@@ -13,26 +13,41 @@ struct VideoScreen: View {
     @State private var didLoad = false
 
     var body: some View {
-        VStack{
-            SwiftUI.List {
-                ForEach(viewModel.videos, id: \.id) { video in
-                    Text(video.video_title ?? "No Title")
-                        .onAppear {
-                            if video.id == viewModel.videos.last?.id {
-                                Task {
-                                    await viewModel.loadMoreVideos()
+        VStack(spacing: 0) {
+
+            // 🔹 Category Tabs
+            CategoryTabsView(
+                categories: viewModel.categories,
+                selected: $viewModel.selectedCategory
+            )
+            .padding(.vertical, 8)
+
+            // 🔹 Video List
+            ScrollView {
+                LazyVStack(spacing: 16) {
+
+                    ForEach(viewModel.videos, id: \.id) { video in
+                        VideoCardView(video: video)
+                            .onAppear {
+                                if video.id == viewModel.videos.last?.id {
+                                    Task {
+                                        await viewModel.loadMoreVideos()
+                                    }
                                 }
                             }
-                        }
-                }
-                
-                if viewModel.isLoading {
-                    HStack {
-                        Spacer()
+                    }
+
+                    if viewModel.isLoading {
                         ProgressView()
-                        Spacer()
+                            .padding()
                     }
                 }
+                .padding(.top)
+            }
+        }
+        .onChange(of: viewModel.selectedCategory) { _ in
+            Task {
+                await viewModel.resetAndFetch()
             }
         }
         .onAppear {

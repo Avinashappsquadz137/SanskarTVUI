@@ -34,3 +34,18 @@ func formatTime(seconds: Double) -> String {
     }
     
 }
+//MARK: Epoch
+func convertEpochMillisToDate(
+    _ epochMillis: String,
+    format: String = "dd MMM yyyy, hh:mm a"
+) -> String {
+    
+    guard let millis = Double(epochMillis) else { return "Invalid Date" }
+    let date = Date(timeIntervalSince1970: millis / 1000)
+    let formatter = DateFormatter()
+    formatter.dateFormat = format
+    formatter.locale = Locale.current
+    formatter.timeZone = TimeZone.current
+    
+    return formatter.string(from: date)
+}

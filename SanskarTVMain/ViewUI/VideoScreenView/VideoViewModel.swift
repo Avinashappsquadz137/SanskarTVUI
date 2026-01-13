@@ -9,38 +9,46 @@ import Combine
 
 @MainActor
 class VideoViewModel: ObservableObject {
-    
+
     @Published var categories: [Category] = []
     @Published var videos: [Videos] = []
-    @Published var selectedCategory: String = "15"
-    
+    @Published var selectedCategory: String = ""
+
     @Published var isLoading = false
     @Published var currentPage = 1
     @Published var hasMore = true
-    
+
+    // MARK: - Reset & Reload
+    func resetAndFetch() async {
+        currentPage = 1
+        hasMore = true
+        videos.removeAll()
+
+        await fetchVideos(page: 1)
+    }
+
     // MARK: - Fetch Videos
     func fetchVideos(page: Int = 1) async {
-        guard hasMore else { return }
+        guard hasMore, !isLoading else { return }
         isLoading = true
 
         let params: [String: Any] = [
             "user_id": "666221",
             "search_content": "",
             "video_category": selectedCategory,
-            "last_video_id": videos.last?.id ?? "",
+            "last_video_id": page == 1 ? "" : (videos.last?.id ?? ""),
             "limit": 10,
             "page_no": page,
             "current_version": "74",
-            "device_type": "1"              
+            "device_type": "1"
         ]
-
 
         do {
             let response: VideoModels = try await ApiClient.shared.request(
                 endpoint: Constant.controlSearchVideos,
                 method: .post,
                 parameters: params,
-                isMultipart: true  
+                isMultipart: true
             )
 
             guard response.status == true,
@@ -67,9 +75,9 @@ class VideoViewModel: ObservableObject {
 
         isLoading = false
     }
+
     func loadMoreVideos() async {
         guard !isLoading, hasMore else { return }
         await fetchVideos(page: currentPage + 1)
     }
-
 }
