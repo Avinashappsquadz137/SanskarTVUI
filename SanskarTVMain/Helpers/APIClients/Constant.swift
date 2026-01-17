@@ -34,7 +34,7 @@ struct Constant {
     static let getMenuMaster                  = "data_model_v1/menu_master/get_menu_master"
     static let getShortsVideo                   = "data_model/Shorts_video/get_shorts_video"
     static let controlSearchVideos              = "data_model/videos/video_control/search_videos"
-    
+    static let masterSearchCentralSearch              = "data_model/user/Master_search/centralSearch"
 }
 
 

@@ -11,7 +11,9 @@ import SwiftUI
 
 @MainActor
 final class AppUIState: ObservableObject {
-    @Published var isVideoFullscreen: Bool = false   
+    @Published var isVideoFullscreen: Bool = false
+    @Published var showSearchScreen: Bool = false
+    @Published var searchText: String = ""
 }
 
 struct MAinTabbarVC: View {
@@ -93,6 +95,12 @@ struct MAinTabbarVC: View {
                 }
                 .accentColor(.white)
             }
+            if uiState.showSearchScreen {
+                MasterSearchView()
+                    .environmentObject(uiState)
+                    .transition(.move(edge: .trailing))
+                    .zIndex(10)
+            }
             SideMenu(isShowing: $presentSideMenu, content: AnyView(SideMenuView(selectedSideMenuTab: $selectedView, presentSideMenu: $presentSideMenu)))
         }
         .onAppear {
@@ -116,7 +124,8 @@ struct NavBar: View {
 
     @Binding var presentSideMenu: Bool
     var notificationCount: Int = 0
-
+    @EnvironmentObject var uiState: AppUIState
+    
     var body: some View {
         ZStack {
            
@@ -137,7 +146,7 @@ struct NavBar: View {
                 HStack(spacing: 20) {
 
                     Button {
-                        print("Search tapped")
+                        uiState.showSearchScreen = true
                     } label: {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 20))
@@ -179,3 +188,5 @@ struct NavBar: View {
         .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
     }
 }
+
+
