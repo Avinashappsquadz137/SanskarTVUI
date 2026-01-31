@@ -27,14 +27,22 @@ struct VideoScreen: View {
                 LazyVStack(spacing: 16) {
 
                     ForEach(viewModel.videos, id: \.id) { video in
-                        VideoCardView(video: video)
-                            .onAppear {
-                                if video.id == viewModel.videos.last?.id {
-                                    Task {
-                                        await viewModel.loadMoreVideos()
+                        NavigationLink {
+                            VideoDetailView(
+                                video: video,
+                                menuMasterID: viewModel.selectedCategory
+                            )
+                        } label: {
+                            VideoCardView(video: video)
+                                .onAppear {
+                                    if video.id == viewModel.videos.last?.id {
+                                        Task {
+                                            await viewModel.loadMoreVideos()
+                                        }
                                     }
                                 }
-                            }
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     if viewModel.isLoading {
